@@ -1,39 +1,67 @@
 import os
 import time
 
+import streamlit as st
 from dotenv import load_dotenv
 from google import genai
 from openai import OpenAI
 
 
+# Load local .env file
 load_dotenv()
+
+
+def get_secret(name):
+    """
+    Get an API key from:
+    1. Local .env file
+    2. Streamlit Cloud Secrets
+    """
+
+    # First try local environment variables
+    value = os.getenv(name)
+
+    if value:
+        return value
+
+    # Then try Streamlit Secrets
+    try:
+        value = st.secrets.get(name)
+
+        if value:
+            return value
+
+    except Exception:
+        pass
+
+    return None
 
 
 class LLMManager:
 
     def __init__(self):
 
-        # ==========================================
+        # ==================================================
         # API KEYS
-        # ==========================================
+        # ==================================================
 
-        self.gemini_key = os.getenv("GEMINI_API_KEY")
-        self.groq_key = os.getenv("GROQ_API_KEY")
-        self.openai_key = os.getenv("OPENAI_API_KEY")
-        self.xai_key = os.getenv("XAI_API_KEY")
+        self.gemini_key = get_secret("GEMINI_API_KEY")
+        self.groq_key = get_secret("GROQ_API_KEY")
+        self.openai_key = get_secret("OPENAI_API_KEY")
+        self.xai_key = get_secret("XAI_API_KEY")
 
-        # ==========================================
+        # ==================================================
         # CLIENTS
-        # ==========================================
+        # ==================================================
 
         self.gemini_client = None
         self.groq_client = None
         self.openai_client = None
         self.xai_client = None
 
-        # ==========================================
+        # ==================================================
         # GEMINI CLIENT
-        # ==========================================
+        # ==================================================
 
         if self.gemini_key:
 
@@ -41,11 +69,9 @@ class LLMManager:
                 api_key=self.gemini_key
             )
 
-        # ==========================================
+        # ==================================================
         # GROQ CLIENT
-        #
-        # Groq is OpenAI-compatible.
-        # ==========================================
+        # ==================================================
 
         if self.groq_key:
 
@@ -54,9 +80,9 @@ class LLMManager:
                 base_url="https://api.groq.com/openai/v1"
             )
 
-        # ==========================================
+        # ==================================================
         # OPENAI CLIENT
-        # ==========================================
+        # ==================================================
 
         if self.openai_key:
 
@@ -64,9 +90,9 @@ class LLMManager:
                 api_key=self.openai_key
             )
 
-        # ==========================================
+        # ==================================================
         # XAI / GROK CLIENT
-        # ==========================================
+        # ==================================================
 
         if self.xai_key:
 
@@ -75,11 +101,11 @@ class LLMManager:
                 base_url="https://api.x.ai/v1"
             )
 
-    def generate(self, question, context):
+    # ======================================================
+    # MAIN GENERATION FUNCTION
+    # ======================================================
 
-        # ==========================================
-        # DOCUMENT QA PROMPT
-        # ==========================================
+    def generate(self, question, context):
 
         prompt = f"""
 You are an AI document assistant.
@@ -109,9 +135,9 @@ QUESTION
 {question}
 """
 
-        # ==========================================
-        # 1. GEMINI FALLBACK CHAIN
-        # ==========================================
+        # ==================================================
+        # 1. GEMINI
+        # ==================================================
 
         if self.gemini_client:
 
@@ -167,8 +193,6 @@ QUESTION
 
                         print(error_text)
 
-                        # Retry temporary server errors
-
                         if (
                             "503" in error_text
                             or "UNAVAILABLE" in error_text
@@ -188,9 +212,9 @@ QUESTION
 
                         break
 
-        # ==========================================
+        # ==================================================
         # 2. GROQ
-        # ==========================================
+        # ==================================================
 
         if self.groq_client:
 
@@ -235,36 +259,30 @@ QUESTION
 
                 if answer:
 
-                    print(
-                        "SUCCESS: Groq"
-                    )
+                    print("SUCCESS: Groq")
 
                     return {
                         "answer": answer,
                         "provider": (
-                            "Groq (openai/gpt-oss-120b)"
+                            "Groq "
+                            "(openai/gpt-oss-120b)"
                         )
                     }
 
             except Exception as error:
 
-                print(
-                    "Groq failed:"
-                )
-
+                print("Groq failed:")
                 print(error)
 
-        # ==========================================
+        # ==================================================
         # 3. OPENAI
-        # ==========================================
+        # ==================================================
 
         if self.openai_client:
 
             try:
 
-                print(
-                    "Trying OpenAI..."
-                )
+                print("Trying OpenAI...")
 
                 response = (
                     self.openai_client
@@ -298,9 +316,7 @@ QUESTION
 
                 if answer:
 
-                    print(
-                        "SUCCESS: OpenAI"
-                    )
+                    print("SUCCESS: OpenAI")
 
                     return {
                         "answer": answer,
@@ -309,23 +325,18 @@ QUESTION
 
             except Exception as error:
 
-                print(
-                    "OpenAI failed:"
-                )
-
+                print("OpenAI failed:")
                 print(error)
 
-        # ==========================================
+        # ==================================================
         # 4. XAI / GROK
-        # ==========================================
+        # ==================================================
 
         if self.xai_client:
 
             try:
 
-                print(
-                    "Trying xAI / Grok..."
-                )
+                print("Trying xAI / Grok...")
 
                 response = (
                     self.xai_client
@@ -359,9 +370,7 @@ QUESTION
 
                 if answer:
 
-                    print(
-                        "SUCCESS: xAI / Grok"
-                    )
+                    print("SUCCESS: xAI / Grok")
 
                     return {
                         "answer": answer,
@@ -370,15 +379,12 @@ QUESTION
 
             except Exception as error:
 
-                print(
-                    "xAI / Grok failed:"
-                )
-
+                print("xAI / Grok failed:")
                 print(error)
 
-        # ==========================================
-        # ALL PROVIDERS FAILED
-        # ==========================================
+        # ==================================================
+        # NO PROVIDER AVAILABLE
+        # ==================================================
 
         return {
             "answer": (
